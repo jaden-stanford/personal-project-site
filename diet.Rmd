@@ -1,0 +1,388 @@
+---
+title: "How does diet affect the gut microbiome?"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+date: '2022-04-12'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, cache = TRUE)
+```
+
+### Introduction
+
+
+Although there are microbiota located in various places in/on the body (skin, ear, gut, mouth, etc.), the gut microbiome is of particular interest, because it hosts the largest population of microorganisms, and alone represents ~3.3 million non-redundant microbial genes. This outnumbers the human genome by a ratio of ~150:1. These microorganisms are located in the gastrointestinal (GI) tract and comprise bacteria, archaea, and eukarya; they have co-evolved with human hosts over thousands of years to form a symbiotic relationship. The GI tract has one of the largest interfaces (250-400 m^2) between the host, environment, and antigens. Around 60 tonnes of food pass through the human GI tract in an average lifespan, which exposes the host microbiota to a variety of organisms from the environment which can change microbial composition.
+
+The human gut microbiota has vital functions within the body, including maintaining immune and metabolic homeostasis, strengthening gut integrity, harvesting energy, and protecting against pathogens. Recent lab techniques have revealed that the human gut microbiota functions effectively as a separate organ. Imbalances of gut microbiota (dysbiosis) are linked with gastrointestinal conditions like reflux, peptic ulcers, IBS, nonalcoholic steatohepatitis, and inflammatory bowel disease. Dysbiosis is also linked to systemic conditions like obesity, atherosclerosis, Type II Diabetes, cancer, Alzheimer’s, and Parkinson’s. Maintaining a healthy and balanced gut microbiota is therefore essential to good health.
+
+```{r, echo=FALSE, out.height = '300px', out.width = '300px', out.extra='style="float:left;padding:10px"'}
+knitr::include_graphics('diet.JPG')
+```
+
+Many factors can influence the gut microbiome, including the environment (geographical location, urban/rural living), antibiotics, host immune systems, disease, lifestyle (smoking, exercise, mental health), and diet. These factors can have huge effects on the diversity of a particular host’s microbiome; human genomes are about 99% identical to each other, but their gut microbiomes can be up to 80-90% different. Research has established diet as one of the primary factors in shaping the gut microbiota over the course of a lifetime and is thought to explain over 20% of the variability in gut microbiota in humans. Different diets affect the composition and diversity of the gut microbiome by introducing new microbes from food. Diets can induce shifts in the gut microbiota, with prolonged dietary changes potentially inducing permanent alterations.
+
+Different diets, and their capacity to influence and change the gut microbiota, are therefore of immense interest. As nutritional knowledge develops and different diets are increasing in popularity, there has been an increase in demand for up-to-date and in-depth dietary advice. Vegetarian and vegan diets have gained increasing popularity recently as part of a growing social movement. The number of U.S. consumers identifying as vegan grew from 1% to 6% between 2014 and 2017. There is also a growing interest in plant-based foods by consumers who don’t consider themselves vegan or vegetarian. Research has shown that extreme diets, such as ‘animal-based’ or ‘plant-based,’ cause significant alterations of the human gut microbiota. Although vegan and vegetarian diets are two of the most well-known alternative diets, other diets like pescatarian are also gaining popularity.
+
+For many years the gut microbiome was viewed as a ‘black box,’  because it was difficult to efficiently process the amount of data needed to fully sequence the microbiome. With increasingly powerful computing and sequencing technology, it is now easier to sequence samples taken from the gut microbiota.  Although there have been previous studies assessing differences between 1 or 2 diets (mainly vegan/vegetarian vs. omnivore), this project aims to assess a larger variety of diets. The aim of this study is to assess how the gut microbiota of alternative diets (vegan, vegetarian, pescatarian) compare to omnivorous diets in terms of diversity and differentially expressed species. The results of this study could show correlations between certain diets and microbial species, and potentially validate the use of certain diets as therapeutic strategies. 
+
+<br/>
+
+### Analysis
+
+The following analysis is all done in R. The first step is to download and install the necessary packages/modules that will be used. 
+
+
+```{r, warning = FALSE, message = FALSE}
+
+#installing libraries and dependencies
+
+library(dplyr)
+library(ggplot2)
+library("tidyverse")
+
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+BiocManager::install(c("dada2", "ShortRead", "Biostrings", "phyloseq", version = "3.12"))
+
+library(dada2)
+library(ShortRead)
+library(Biostrings)
+library(phyloseq)
+
+```
+
+#### Download Sample Files
+
+Next, we need to download the sample files that will be used in the analysis. The samples I chose to use are from the [American Gut Project](https://microsetta.ucsd.edu/), which is the world's largest citizen science microbiome project. It has over 33,000 samples from the United States, United Kingdom, and Australia. Over 467 (48,599) unique 18s rRNA gene fragments have been identified. Through preliminary data analysis, researchers at the American Gut Project have shown that their crowd-sourced samples recapture many known microbiome results from clinically collected cohorts, as well as reveal new ones. This validates the use of AGP data over clinically collected data, as AGP data offers additional insights for important participant phenotypes.
+
+Using a survey, participants in the AGP report a variety of factors like age, race, geographic location, general health status, disease history, history of antibiotic use, and lifestyle data like  diet.  Similar to the researchers at the AGP, this project will focus its analysis on stool samples identified from a ‘healthy adult,’ which includes individuals aged <70 years, with body mass index (BMI) ranging from 18.5 - 26, no self-reported history of inflammatory bowel disease, diabetes, or antibiotic use in the past year, and at least 1,250 16S sequences5. This minimizes the chance for confounding variables in the microbiome sequencing. 
+
+4 samples were selected from each diet in ‘healthy adults’ (parameters described in methods above) using redbiom on [Qiita](https://qiita.ucsd.edu/). Redbiom is a cache service that can be used to search databases for samples that contain certain features. This allows for the discovery and use of a potentially wide variety of samples, which is needed for the analysis. Redbiom on Qiita was used to query the AGP database for samples within each diet that meet the desired parameters. Information about the samples in each diet group is shown in the following table. Each sample also had no diagnosis of diabetes or IBD, and no antibiotic use in the past year. To find these samples, you can search the sample name ('SAME...') in the [ENA Library](https://www.ebi.ac.uk/ena/browser/text-search?query=SAMEA8108561).
+
+```{r, echo = FALSE, message = FALSE, warning = FALSE}
+library(knitr)
+df <- data.frame(
+  Sample = c('Vegan1','Vegan2', 'Vegan3', 'Vegan4', 'Vegetarian1', 'Vegetarian2', 'Vegetarian3', 'Vegetarian4', 'Pescatarian1', 'Pescatarian2', 'Pescatarian3', 'Pescatarian4', 'Omnivore1', 'Omnivore2', 'Omnivore3', 'Omnivore4'),
+  Sample_Name = c('SAMEA94873168', 'SAMEA94884418', 'SAMEA94870168', 'SAMEA94966918', 'SAMEA94777918', 'SAMEA94863418', 'SAMEA94839418', 'SAMEA94899418', 'SAMEA4786923', 'SAMEA4786943', 'SAMEA4787147', 'SAMEA4786967', 'SAMEA8108564', 'SAMEA8108572', 'SAMEA8108561', 'SAMEA4790056'),
+  Age = c('40', '36', '57', '40', '41', '56', '23', '48', '66', '38', '67', '53', '55', '46', '62', '41'),
+  BMI = c('22.83', '22.53', '19.04', '24.09', '19.47', '18.83', '22.39', '23.81', '23.30', '20.80', '24.41', '21.82', '19.20', '25.73', '24.80', '23.57'),
+  Sex = c('Female', 'Male', 'Male', 'Female', 'Female', 'Female', 'Male', 'Male', 'Male', 'Female', 'Male', 'Female', 'Female', 'Male', 'Female', 'Male')
+                   )
+kable(df, caption = "Table showing sample information")
+
+
+```
+
+To download these files, I created a folder 'fastqfiles2' and used the R command 'download.file()'. The sample files are located in the ENA library. To download the file, search the sample name in ENA, and click on the result for 'Sample'. Then click 'show' for read files on the right. At the bottom, mouse over the link for the generated fastq file and copy it. You can use this link with download.file('url', 'file-path') in the console to download the file to a local directory. 
+
+The samples come in fastq format, which is a variation of the fasta file. Fasta is a common text-based format for representing nucleotide or protein sequences obtained from sequencing runs of biolgical samples. Fastq files also encode data about the quality of the sample reads. Fasta/fastq files can be parsed through to match sequences to specific genes or proteins, which will be one of the later steps in analysis. 
+
+The first step in the analysis involves filtering and trimming the fastq files to ensure there are only high-quality reads. Below, the samples are read in from the folder they are located in, and a directory is created for the filtered file outputs. 
+
+```{r, warning = FALSE, message = FALSE}
+
+#specify path to fastq files
+path <- "fastqfiles2" 
+list.files(path)
+
+#read in names of fastq files 
+fns <- list.files(path, pattern ="fastq")
+
+# assigning output of filtered reads to be stored as fastq.gz files
+filtFs <- file.path("filtered")
+
+
+```
+
+In the following code, the sample names are obtained by stripping the '.fastq.gz' ending so that they can be used for labelling later. 
+```{r, warning = FALSE, message = FALSE}
+#getting sample names
+cuts<- sort(list.files(path, pattern = ".fastq", full.names = TRUE))
+get.sample.name <- function(fname) strsplit(basename(fname), ".fastq")[[1]][1]
+sample.names <- unname(sapply(cuts, get.sample.name))
+head(sample.names)
+```
+
+<br/>
+#### Initial Quality Filtering and Trimming
+
+At this point, the Dada2 package will be used for initial quality filtering and trimming. Standard filtering parameters were used (truncQ=2, maxEE = 2, trimLeft = 21) with the filterAndTrim function, which takes input fastq files and outputs fastq files containing trimmed reads that have passed the filters. 
+```{r, warning = FALSE, message = FALSE}
+
+#filtering the data, removing the primer sequence
+#note : to get this to work, I had to uninstall and re-isntall the matrix package as a previous version
+
+out <- filterAndTrim(fwd=file.path(path,fns), filt=file.path(filtFs, fns),maxEE=2,trimLeft = 21, truncQ=2, compress=TRUE) 
+
+out
+```
+
+This plot will show the quality profile of the first sample before filtering. 
+
+```{r, warning = FALSE, message = FALSE}
+#plot quality before filtering
+plotQualityProfile(cuts[1])
+```
+
+This next graph shows the same quality profile after filtering, which shows a better quality score, especially at the left and right ends. A quality score of over 30 is considered to be standard for use.
+
+```{r, warning = FALSE, message = FALSE}
+#plot quality after filtering
+plotQualityProfile(filtFs[1])
+
+```
+<br/>
+
+
+#### Generate learned error rates
+
+
+The next step is to generate learned error rates, which are later used in Dada2 to identify sequence variants. The Dada2 algorithm uses a parametric error model based on the error introduced by PCR amplification sequencing. This is done using the 'learnErrors' function. Visualization of these graphs serves as a quality check for the data and algorithm before preceding. The black line is the estimated error rate from the learnErrors algorithm, and the red line is the expected error rate from the quality score. The graph below shows that the estimated error (red line) is a good fit to the observed error (black points), and error rates drop with increased quality score as expected. Accurate learning rates will improve the outcome of using Dada2.
+
+```{r, warning = FALSE, message = FALSE}
+#learning error rates and plotting them
+errs <- learnErrors(filtFs, multithread = FALSE)
+plotErrors(errs, nominalQ = TRUE)
+```
+<br/>
+
+#### De-replication
+
+Next, Next, identical reads were de-replicated using derepFastq. This helps save computation time, and also eliminates redundant reads. Identical reads are also called PCR duplicates and arise during PCR amplification of the sequences; some amount of PCR duplication is unavoidable so there is expected to be duplicated reads in each sample. Most sequencing pipelines recommend the removal of PCR duplicates.
+
+
+
+```{r, warning = FALSE, message = FALSE}
+#dereplicating identical reads
+dereps <- derepFastq(filtFs, verbose = TRUE)
+```
+
+<br/>
+
+#### Apply Dada Agorithm to generate ASVs
+
+Next, we apply the core algorithm of Dada2 to the de-replicated data. The dada function (short for divisive amplicon denoising algorithm) depends on the learned error rates created earlier, and identifies amplicon sequence variants (ASVs) from the samples. ASVs are short sequences that differ by as little as one nucleotide. More detailed information about how the dada algorithm works is available at https://www.nature.com/articles/nmeth.3869#methods. An (ASV) table was then constructed using makeSequenceTable. This table includes the ASVs, and the
+number of times they were detected within each sampe.
+
+```{r, warning = FALSE, message = FALSE}
+#applying dada algorithm 
+dadaFs <- dada(dereps, err = errs, multithread = FALSE)
+dadaFs[[1]]
+
+#constructing an amplicon sequence variant table (ASV), a higher-resolution version of the OTU table produced by traditional methods
+seqtab <- makeSequenceTable(dadaFs)
+dim(seqtab)
+
+```
+<br/>
+
+#### Remove chimeric sequences
+
+
+Next, we remove chimeric sequences. Chimeric reads are undesirable in the data because they are hybrid products between 2 sequences that can be falsely interpreted as new organisms. This could falsely inflate diversity metrics or even identify ASVs that do not correspond to any real bacterial species. Dada2 uses a non-traditional and sensitive chimera detection method. The function in Dada2 `isBimeraDenovo` identifies and removes sequences that are exact bimeras (two-parent chimeras) of abundant output
+sequences.
+
+
+```{r, warning = FALSE, message = FALSE}
+#removing chimeric sequences
+seqtab.nochim <- removeBimeraDenovo(seqtab, method = "consensus", multithread = FALSE, verbose = TRUE)
+
+#look at distribution of sequence lengths
+table(nchar(getSequences(seqtab)))
+table(nchar(getSequences(seqtab.nochim)))
+
+```
+<br/>
+
+#### Quality check reads at each point
+
+After the removal of chimeric sequences, a final quality control step was performed on the data. The amount of reads that 'survived' each quality control step was calculated. There should be no major step where a majority of the reads are lost. Removal of a large amount of reads after removing chimeric sequences could indicate primer contamination. Because the data shows that no step resulted in a significant loss of reads, preliminary data processing appears sound. 
+
+
+```{r}
+#tracking the number of reads that made it through each step in the pipeline to verify everything worked as expected
+#no single step should result in a dramatic drop in the amount of reads
+getN <- function(x) sum(getUniques(x))
+track <- cbind(out,sapply(dadaFs, getN),rowSums(seqtab.nochim))
+
+colnames(track) <- c("input", "filtered", 
+    "denoised", "nonchim")
+rownames(track) <- sample.names
+track
+
+#creating data frame for easy viewing
+track.df <- as.data.frame((track))
+track.df
+
+```
+<br/>
+#### Assign taxonomy
+
+After identification of the ASVs, it was important to identify what ASVs corresponded to which bacterial species. This was done again using Dada2 and a training set of reference sequences with known taxonomy. Dada2 uses the naive Bayesian classifier method for taxonomic assignment. The assignTaxonomy function takes an input set of sequences to be classified and a training set of references with known taxonomy; taxonomic assignments are generated with at least minBoot bootstrap confidence. The Silva reference database17 for 16s was used because it was able to offer species-assignment training, whereas other databases were only specific to the genus level. The table below shows part of the first part of the taxa table generated by this step, where the ASVs (row names) were assigned to taxonomy. It should be noted that not every species was able to be assigned; this is expected because not every ASV can be matched to a species with the high level of confidence required. Furthermore, the genus identification is still significant and specific enough to offer important insight to the data.
+
+```{r}
+#assigning taxonomy RDP genome
+ref.genome <- "silva_nr99_v138.1_wSpecies_train_set.fa.gz"
+
+taxa <- assignTaxonomy(seqtab.nochim, ref.genome, multithread = FALSE, tryRC = TRUE)
+
+#inspecting taxonomic assignments
+taxa.print <- taxa
+rownames(taxa.print) <- NULL
+head(taxa.print)
+```
+<br/>
+
+### Phyloseq
+
+```{r}
+#handing off data to phyloseq
+
+#constructing dataframe from info in file names
+samples.out <- rownames(seqtab.nochim)
+diet <- sapply(strsplit(samples.out, "S"), `[`, 1)
+sample <- as.integer(gsub("[A-z \\.\\(\\)]", "", samples.out))
+samdf <- data.frame(Diet=diet, Sample=sample)
+
+rownames(samdf) <- samples.out
+```
+
+
+```{r}
+#constructing phyloseq object 
+ps <- phyloseq(otu_table(seqtab.nochim, taxa_are_rows=FALSE), 
+               sample_data(samdf), 
+               tax_table(taxa))
+ps
+```
+
+
+<br/>
+#### Clustering and PCA
+
+Clustering and Principle Component Analysis (PCA) was then performed for the samples to visualize preliminary results and possible similarities between the samples. 
+
+```{r}
+library(rbiom)
+library(dplyr)
+library(tibble)
+library(dendextend)
+
+#getting asv and taxa data into tables
+table_otu <- seqtab.nochim
+table_taxa <- taxa
+table_sample_info <- sample_data(samdf)
+
+#inner join 
+table_otu <- t(table_otu)
+table_otu <- as.data.frame(table_otu)
+table_taxa <- as.data.frame(table_taxa)
+otu <- merge(table_otu,table_taxa, by = 0)
+rownames(otu) <- otu[,1]
+otu[,1] <- NULL
+
+#removing classification 
+otu_noclass <- otu[c(1:16)]
+otu_noclass <- t(otu_noclass)
+row.names(otu_noclass) <- c("Omn1", "Omn2", "Omn3", "Omn4", "Pes1", "Pes2", "Pes3", "Pes4", "Vege1", "Vege2", "Vege3", "Vege4", "Veg1", "Veg2", "Veg3", "Veg4")
+
+#calculating distance for clustering
+otu.dist <- dist(otu_noclass, method = "euclidean")
+dend <-as.dendrogram(hclust(otu.dist, method = "complete"))
+dend1 <- color_branches(dend, k = 8)
+dend2 <- set(dend1 ,"labels_cex", 0.5)
+dend3 <- color_labels(dend2, col = c("red", "red", "blue", "blue", "green", "green", "green", "orange", "orange", "red","orange", "orange", "green","blue", "red","blue"))
+plot(dend3, main = "Cluster Dendrogram")
+
+```
+
+
+
+
+
+```{r}
+#visualize alpha diversity 
+
+plot_richness(ps, x = "Diet", title = "                                  Measures of Alpha Diversity", measures = c("Shannon", "Simpson"), color = "Diet")
+```
+<br/>
+
+#### Bar plot of top 20 Phyla
+
+```{r}
+#bar plot
+
+top20 <- names(sort(taxa_sums(ps), decreasing=TRUE))[1:20]
+ps.top20 <- transform_sample_counts(ps, function(OTU) OTU/sum(OTU))
+ps.top20 <- prune_taxa(top20, ps.top20)
+plot <- plot_bar(ps.top20, x="Sample", fill="Phylum")
+plot
+
+```
+<br/>
+
+### Top 20 Phyla after removing contaminated samples
+
+```{r}
+#removing contaminated samples
+seqtab.nochim2 <- seqtab.nochim[-6,]
+seqtab.nochim2 <- seqtab.nochim2[-12,]
+
+samples.out <- rownames(seqtab.nochim2)
+diet <- sapply(strsplit(samples.out, "S"), `[`, 1)
+sample <- as.integer(gsub("[A-z \\.\\(\\)]", "", samples.out))
+samdf <- data.frame(Diet=diet, Sample=sample)
+row.names(samdf) <- rownames(seqtab.nochim2)
+
+ps1 <- phyloseq(otu_table(seqtab.nochim2, taxa_are_rows=FALSE), 
+               sample_data(samdf), 
+               tax_table(taxa))
+ps1
+
+
+#re-graphing without contaminated samples
+top20 <- names(sort(taxa_sums(ps1), decreasing=TRUE))[1:20]
+ps1.top20 <- transform_sample_counts(ps1, function(OTU) OTU/sum(OTU))
+ps1.top20 <- prune_taxa(top20, ps1.top20)
+plot1 <- plot_bar(ps1.top20, x="Sample", fill="Phylum")
+plot1
+
+#re-writing new data without contaminated samples
+table_otu2 <- seqtab.nochim2
+table_taxa2 <- taxa
+table_sample_info <- sample_data(samdf)
+write.csv(table_otu2, "table_otu2.csv")
+write.csv(table_taxa2, "table_taxa2.csv")
+```
+
+<br/>
+#### Heatmap
+
+```{r}
+#phyloseq heatmap
+ps_dat <- subset_taxa(ps1, Kingdom = "Bacteria")
+ps_dat <- prune_taxa(names(sort(taxa_sums(ps_dat), TRUE)[1:300]), ps_dat)
+plot_heatmap(ps_dat)
+
+```
+
+#### Top species in each diet 
+
+```{r}
+#looking at the top ASVss in each diet
+topNOTUs <- names(sort(taxa_sums(ps1), TRUE)[1:12])
+ent10 <- prune_taxa(topNOTUs, ps1)
+plot_bar(ent10, "Diet", fill = "Diet", facet_grid=~Species)
+
+#to look at different classification, change "genus" to "species", "phylum", etc.
+
+
+```
+
+
+<br/>
+<br/>
+

@@ -1,0 +1,62 @@
+---
+title: "About This Project"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+---
+
+I created this site as a way to display and share the results from my personal project during my time as an intern at Oracle for Startups. I wanted to look at the microbiome because it is a recent field with a lot of new and exciting research. The human microbiome has also been linked to good health by a variety of studies. 
+
+My goal was to look at how different factors can affect the human microbiome. So far, I have looked at diet and how it affects the gut microbiome, which you can view by selecting the 'diet' tab. 
+
+<br/>
+
+## More Information
+
+There are many sites you can visit for more information on microbiome analysis.
+
+Detailed information about the human microbiome from the NIH:
+
+- https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3426293/
+
+Introduction to microbiome analysis and description of next-generation sequencing methods used to obtain data:
+
+- https://www.illumina.com/areas-of-interest/microbiology/human-microbiome-analysis.html#
+
+Introduction to the microbiome from the NIEHS:
+
+- https://www.niehs.nih.gov/health/topics/science/microbiome/index.cfm
+
+MGnify, a database for finding microbiome data:
+
+- https://www.ebi.ac.uk/metagenomics/
+
+<br/>
+<br/>
+
+## About Me
+
+
+```{r, echo=FALSE, out.height = '150px', out.width = '125px', out.extra='style="float:left;padding:10px"'}
+knitr::include_graphics('headshot.jpg')
+```
+
+
+My name is Jaden and I currently work as an intern at Oracle for Startups. I am in my final year of school at the University of Virginia studying Biomedical Engineering with a minor in Data Science. After graduation, I hope to continue what i've learned at Oracle and start my career in a bioinformatics-related field. I am from the beach and love being outdoors, and spending time hiking or doing yoga.
+
+
+<br/>
+<br/>
+<br/>
+
+
+## Sources 
+
+- https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6478664/
+
+
+<br/>
+<br/>
+
+
